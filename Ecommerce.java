@@ -19,19 +19,21 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import com.google.gson.*;
 
-// la URL del servicio web es http://localhost:8080/Servicio/rest/ws
+import java.util.ArrayList;
+
+// la URL del servicio web es http://localhost:8080/Ecommerce/rest/ws
 // donde:
-//	"Servicio" es el dominio del servicio web (es decir, el nombre de archivo Servicio.war)
+//	"Ecommerce" es el dominio del servicio web (es decir, el nombre de archivo Ecommerce.war)
 //	"rest" se define en la etiqueta <url-pattern> de <servlet-mapping> en el archivo WEB-INF\web.xml
-//	"ws" se define en la siguiente anotacin @Path de la clase Servicio
+//	"ws" se define en la siguiente anotacin @Path de la clase Ecommerce
 
 @Path("ws")
-public class Servicio {
+public class Ecommerce {
   static DataSource pool = null;
   static {		
     try {
       Context ctx = new InitialContext();
-      pool = (DataSource)ctx.lookup("java:comp/env/jdbc/datasource_Servicio");
+      pool = (DataSource)ctx.lookup("java:comp/env/jdbc/datasoruce_ecommerce");
     }
     catch(Exception e) {
       e.printStackTrace();
@@ -41,7 +43,7 @@ public class Servicio {
   static Gson j = new GsonBuilder().registerTypeAdapter(byte[].class,new AdaptadorGsonBase64()).setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS").create();
 
   @POST
-  @Path("alta_usuario")
+  @Path("alta_articulo")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response alta(String json) throws Exception {
@@ -50,6 +52,7 @@ public class Servicio {
 
     Connection conexion = pool.getConnection();
 
+    /*
     if (articulo.nombre == null || articulo.nombre.equals(""))
       return Response.status(400).entity(j.toJson(new Error("Se debe ingresar el nombre"))).build();
 
@@ -61,6 +64,7 @@ public class Servicio {
 
     if (articulo.cantidad == 0)
       return Response.status(400).entity(j.toJson(new Error("Se debe ingresar la cantidad"))).build();
+      */
 
     try {
       conexion.setAutoCommit(false);
@@ -72,7 +76,7 @@ public class Servicio {
         stmt_1.setString(2,articulo.descripcion);
         stmt_1.setFloat(3,articulo.precio);
         stmt_1.setInt(4,articulo.cantidad);
-        stmt_1.setBytes(4,articulo.fotografia);
+        stmt_1.setBytes(5,articulo.fotografia);
         stmt_1.executeUpdate();
       }
       finally {
@@ -92,19 +96,22 @@ public class Servicio {
   }
 
   @POST
-  @Path("consulta_articulo")
+  @Path("consulta_articulos")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response consulta(String json) throws Exception {
     ParamConsultaArticulo p = (ParamConsultaArticulo) j.fromJson(json,ParamConsultaArticulo.class);
-    String email = p.email;
+    String keyword = p.keyword;
 
     Connection conexion= pool.getConnection();
 
+    ArrayList<Articulo> articulos = new ArrayList<Articulo>();
+
     try {
-      PreparedStatement stmt_1 = conexion.prepareStatement("SELECT nombre,descripcion,precio,cantidad,fotografia FROM articulos WHERE email=%LIKE%");
+      PreparedStatement stmt_1 = conexion.prepareStatement("SELECT nombre,descripcion,precio,cantidad,fotografia FROM articulos WHERE nombre LIKE ? OR descripcion LIKE ?");
       try {
-        stmt_1.setString(1,email);
+        stmt_1.setString(1,'%'+keyword+'%');
+        stmt_1.setString(2,'%'+keyword+'%');
 
         ResultSet rs = stmt_1.executeQuery();
         try {
@@ -112,12 +119,11 @@ public class Servicio {
             Articulo r = new Articulo();
             r.nombre = rs.getString(1);
             r.descripcion = rs.getString(2);
-            r.precio = rs.getString(3);
-            r.cantidad = rs.getString(4);
-            r.fotografia = rs.getBytes(8);
-            return Response.ok().entity(j.toJson(r)).build();
+            r.precio = rs.getFloat(3);
+            r.cantidad = rs.getInt(4);
+            r.fotografia = rs.getBytes(5);
+	    articulos.add(r);
           }
-          return Response.status(400).entity(j.toJson(new Error("No hay articulos"))).build();
         }
         finally {
           rs.close();
@@ -133,6 +139,7 @@ public class Servicio {
     finally {
       conexion.close();
     }
+    return Response.ok().entity(j.toJson(articulos)).build();
   }
 
   /*

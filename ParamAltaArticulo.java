@@ -1,6 +1,5 @@
 package ecommerce;
 
-public class ParamAltaArticulo 
-{
+public class ParamAltaArticulo {
   Articulo articulo;
 }
