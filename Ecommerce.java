@@ -23,14 +23,14 @@ import java.util.ArrayList;
 
 // la URL del servicio web es http://localhost:8080/Ecommerce/rest/ws
 // donde:
-//	"Ecommerce" es el dominio del servicio web (es decir, el nombre de archivo Ecommerce.war)
-//	"rest" se define en la etiqueta <url-pattern> de <servlet-mapping> en el archivo WEB-INF\web.xml
-//	"ws" se define en la siguiente anotacin @Path de la clase Ecommerce
+//  "Ecommerce" es el dominio del servicio web (es decir, el nombre de archivo Ecommerce.war)
+//  "rest" se define en la etiqueta <url-pattern> de <servlet-mapping> en el archivo WEB-INF\web.xml
+//  "ws" se define en la siguiente anotacin @Path de la clase Ecommerce
 
 @Path("ws")
 public class Ecommerce {
   static DataSource pool = null;
-  static {		
+  static {    
     try {
       Context ctx = new InitialContext();
       pool = (DataSource)ctx.lookup("java:comp/env/jdbc/datasoruce_ecommerce");
@@ -46,28 +46,19 @@ public class Ecommerce {
   @Path("alta_articulo")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response alta(String json) throws Exception {
+  public Response altaArticulo(String json) throws Exception {
     ParamAltaArticulo p = (ParamAltaArticulo) j.fromJson(json,ParamAltaArticulo.class);
     Articulo articulo = p.articulo;
-
     Connection conexion = pool.getConnection();
 
-    /*
     if (articulo.nombre == null || articulo.nombre.equals(""))
       return Response.status(400).entity(j.toJson(new Error("Se debe ingresar el nombre"))).build();
 
     if (articulo.descripcion == null || articulo.descripcion.equals(""))
       return Response.status(400).entity(j.toJson(new Error("Se debe ingresar la descripcion"))).build();
 
-    if (articulo.precio == 0)
-      return Response.status(400).entity(j.toJson(new Error("El precio no debe ser 0"))).build();
-
-    if (articulo.cantidad == 0)
-      return Response.status(400).entity(j.toJson(new Error("Se debe ingresar la cantidad"))).build();
-      */
-
     try {
-      conexion.setAutoCommit(false);
+      conexion.setAutoCommit(false);    // iniciar transaccion
 
       PreparedStatement stmt_1 = conexion.prepareStatement("INSERT INTO articulos(id,nombre,descripcion,precio,cantidad,fotografia) VALUES (0,?,?,?,?,?)");
  
@@ -82,15 +73,15 @@ public class Ecommerce {
       finally {
         stmt_1.close();
       }
-      conexion.commit();
+      conexion.commit();                // guardar cambios
     }
     catch (Exception e) {
-      conexion.rollback();
+      conexion.rollback();              // revertir cambios
       return Response.status(400).entity(j.toJson(new Error(e.getMessage()))).build();
     }
     finally {
       conexion.setAutoCommit(true);
-      conexion.close();
+      conexion.close();                 // cerrar conexion
     }
     return Response.ok().build();
   }
@@ -99,12 +90,10 @@ public class Ecommerce {
   @Path("consulta_articulos")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response consulta(String json) throws Exception {
+  public Response consultaArticulos(String json) throws Exception {
     ParamConsultaArticulo p = (ParamConsultaArticulo) j.fromJson(json,ParamConsultaArticulo.class);
     String keyword = p.keyword;
-
     Connection conexion= pool.getConnection();
-
     ArrayList<Articulo> articulos = new ArrayList<Articulo>();
 
     try {
@@ -122,7 +111,7 @@ public class Ecommerce {
             r.precio = rs.getFloat(3);
             r.cantidad = rs.getInt(4);
             r.fotografia = rs.getBytes(5);
-	    articulos.add(r);
+            articulos.add(r);
           }
         }
         finally {
@@ -142,108 +131,29 @@ public class Ecommerce {
     return Response.ok().entity(j.toJson(articulos)).build();
   }
 
-  /*
   @POST
-  @Path("modifica_articulo")
+  @Path("agregar_a_carrito")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response modifica(String json) throws Exception {
-    ParamModificaArticulo p = (ParamModificaArticulo) j.fromJson(json,ParamModificaArticulo.class);
-    Articulo articulo = p.articulo;
-
-    Connection conexion= pool.getConnection();
-
-    if (articulo.email == null || articulo.email.equals(""))
-      return Response.status(400).entity(j.toJson(new Error("Se debe ingresar el email"))).build();
-
-    if (articulo.nombre == null || articulo.nombre.equals(""))
-      return Response.status(400).entity(j.toJson(new Error("Se debe ingresar el nombre"))).build();
-
-    if (articulo.apellido_paterno == null || articulo.apellido_paterno.equals(""))
-      return Response.status(400).entity(j.toJson(new Error("Se debe ingresar el apellido paterno"))).build();
-
-    if (articulo.fecha_nacimiento == null)
-      return Response.status(400).entity(j.toJson(new Error("Se debe ingresar la fecha de nacimiento"))).build();
-
-    conexion.setAutoCommit(false);
-    try {
-      PreparedStatement stmt_1 = conexion.prepareStatement("UPDATE usuarios SET nombre=?,apellido_paterno=?,apellido_materno=?,fecha_nacimiento=?,telefono=?,genero=? WHERE email=?");
-      try {
-        stmt_1.setString(1,articulo.nombre);
-        stmt_1.setString(2,articulo.apellido_paterno);
-
-        if (articulo.apellido_materno != null)
-          stmt_1.setString(3,articulo.apellido_materno);
-        else
-          stmt_1.setNull(3,Types.VARCHAR);
-
-        stmt_1.setTimestamp(4,articulo.fecha_nacimiento);
-
-        if (articulo.telefono != null)
-          stmt_1.setLong(5,articulo.telefono);
-        else
-          stmt_1.setNull(5,Types.BIGINT);
-
-        stmt_1.setString(6,articulo.genero);
-        stmt_1.setString(7,articulo.email);
-        stmt_1.executeUpdate();
-      }
-      finally {
-        stmt_1.close();
-      }
-
-      PreparedStatement stmt_2 = conexion.prepareStatement("DELETE FROM fotos_usuarios WHERE id_usuario=(SELECT id_usuario FROM usuarios WHERE email=?)");
-      try {
-        stmt_2.setString(1,articulo.email);
-        stmt_2.executeUpdate();
-      }
-      finally {
-        stmt_2.close();
-      }
-
-      if (articulo.foto != null) {
-        PreparedStatement stmt_3 = conexion.prepareStatement("INSERT INTO fotos_usuarios(id_foto,foto,id_usuario) VALUES (0,?,(SELECT id_usuario FROM usuarios WHERE email=?))");
-        try {
-          stmt_3.setBytes(1,articulo.foto);
-          stmt_3.setString(2,articulo.email);
-          stmt_3.executeUpdate();
-        }
-        finally {
-          stmt_3.close();
-        }
-      }
-      conexion.commit();
-    }
-    catch (Exception e) {
-      conexion.rollback();
-      return Response.status(400).entity(j.toJson(new Error(e.getMessage()))).build();
-    }
-    finally {
-      conexion.setAutoCommit(true);
-      conexion.close();
-    }
-    return Response.ok().build();
-  }
-
-  @POST
-  @Path("borra_articulo")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response borra(String json) throws Exception {
-    ParamBorraArticulo p = (ParamBorraArticulo) j.fromJson(json,ParamBorraArticulo.class);
-    String email = p.email;
-
-    Connection conexion= pool.getConnection();
+  public Response agregarACarrito(String json) throws Exception {
+    ParamAgregarACarrito p = (ParamAgregarACarrito) j.fromJson(json,ParamAgregarACarrito.class);
+    String nombre = p.nombre;
+    int cantidad = p.cantidad;
+    Connection conexion = pool.getConnection();
+    int cantidad_actual = 0;
+    int id = 0;
 
     try {
-      PreparedStatement stmt_1 = conexion.prepareStatement("SELECT 1 FROM usuarios WHERE email=?");
+      PreparedStatement stmt_1 = conexion.prepareStatement("SELECT id,cantidad FROM articulos WHERE nombre=?");
       try {
-        stmt_1.setString(1,email);
+        stmt_1.setString(1,nombre);
 
         ResultSet rs = stmt_1.executeQuery();
         try {
-          if (!rs.next())
-		return Response.status(400).entity(j.toJson(new Error("El email no existe"))).build();
+          if (rs.next()) {
+            id = rs.getInt(1);
+            cantidad_actual = rs.getInt(2);
+          }
         }
         finally {
           rs.close();
@@ -252,35 +162,237 @@ public class Ecommerce {
       finally {
         stmt_1.close();
       }
-      conexion.setAutoCommit(false);
-      PreparedStatement stmt_2 = conexion.prepareStatement("DELETE FROM fotos_usuarios WHERE id_usuario=(SELECT id_usuario FROM usuarios WHERE email=?)");
+    }
+    catch (Exception e) {
+      return Response.status(400).entity(j.toJson(new Error(e.getMessage()))).build();
+    }
+
+    if (cantidad > cantidad_actual) {
+      conexion.close();
+      return Response.status(400).entity(j.toJson(new Error("Hay " + cantidad_actual + " productos disponibles"))).build();
+    }
+
+    cantidad_actual -= cantidad;
+
+    try {
+      conexion.setAutoCommit(false);  // iniciar transaccion
+
+      PreparedStatement stmt_1 = conexion.prepareStatement("UPDATE articulos SET cantidad=? WHERE nombre=?");
       try {
-        stmt_2.setString(1,email);
-	stmt_2.executeUpdate();
+        stmt_1.setInt(1,cantidad_actual);
+        stmt_1.setString(2,nombre);
+        stmt_1.executeUpdate();
+      }
+      finally {
+        stmt_1.close();
+      }
+
+      PreparedStatement stmt_2 = conexion.prepareStatement("INSERT INTO carrito_compra(id,cantidad,id_articulo) VALUES (0,?,?)");
+      try {
+        stmt_2.setInt(1,cantidad);
+        stmt_2.setInt(2,id);
+        stmt_2.executeUpdate();
       }
       finally {
         stmt_2.close();
       }
 
-      PreparedStatement stmt_3 = conexion.prepareStatement("DELETE FROM usuarios WHERE email=?");
-      try {
-        stmt_3.setString(1,email);
-	stmt_3.executeUpdate();
-      }
-      finally {
-        stmt_3.close();
-      }
-      conexion.commit();
+      conexion.commit();              // guardar cambios
     }
     catch (Exception e) {
-      conexion.rollback();
+      conexion.rollback();            // revertir cambios
       return Response.status(400).entity(j.toJson(new Error(e.getMessage()))).build();
     }
     finally {
-      conexion.setAutoCommit(true);
+      conexion.setAutoCommit(true);   // cerrar conexion
       conexion.close();
     }
     return Response.ok().build();
   }
-  */
+
+  @POST
+  @Path("mostrar_carrito")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response mostrarCarrito(String json) throws Exception {
+    Connection conexion= pool.getConnection();
+    ArrayList<Articulo> articulos = new ArrayList<Articulo>();
+
+    try {
+      PreparedStatement stmt_1 = conexion.prepareStatement("SELECT c.id, a.nombre, a.descripcion, a.precio, c.cantidad, a.fotografia FROM carrito_compra c INNER JOIN articulos a ON c.id_articulo=a.id;");
+      try {
+        ResultSet rs = stmt_1.executeQuery();
+        try {
+          while (rs.next()) {
+            Articulo r = new Articulo();
+            r.id = rs.getInt(1);
+            r.nombre = rs.getString(2);
+            r.descripcion = rs.getString(3);
+            r.precio = rs.getFloat(4);
+            r.cantidad = rs.getInt(5);
+            r.fotografia = rs.getBytes(6);
+            articulos.add(r);
+          }
+        }
+        finally {
+          rs.close();
+        }
+      }
+      finally {
+        stmt_1.close();
+      }
+    }
+    catch (Exception e) {
+      return Response.status(400).entity(j.toJson(new Error(e.getMessage()))).build();
+    }
+    finally {
+      conexion.close();
+    }
+    return Response.ok().entity(j.toJson(articulos)).build();
+  }
+
+  @POST
+  @Path("borrar_de_carrito")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response borrarDeCarrito(String json) throws Exception {
+    Connection conexion= pool.getConnection();
+    ParamBorrarDeCarrito p = (ParamBorrarDeCarrito) j.fromJson(json,ParamBorrarDeCarrito.class);
+    int id_carrito = p.id;
+    int cantidad = 0;
+    int id = 0;
+
+    try {
+      PreparedStatement stmt_1 = conexion.prepareStatement("SELECT c.id_articulo, c.cantidad, a.cantidad FROM carrito_compra c INNER JOIN articulos a ON c.id_articulo=a.id WHERE c.id=?");
+      try {
+        stmt_1.setInt(1,id_carrito);
+        ResultSet rs = stmt_1.executeQuery();
+        try {
+          if (rs.next()) {
+            id = rs.getInt(1);
+            cantidad = rs.getInt(2) + rs.getInt(3);
+          }
+        }
+        finally {
+          rs.close();
+        }
+      }
+      finally {
+        stmt_1.close();
+      }
+    }
+    catch (Exception e) {
+      return Response.status(400).entity(j.toJson(new Error(e.getMessage()))).build();
+    }
+
+    try {
+      conexion.setAutoCommit(false);  // iniciar transaccion
+
+      PreparedStatement stmt_1 = conexion.prepareStatement("UPDATE articulos SET cantidad=? WHERE id=?");
+      try {
+        stmt_1.setInt(1,cantidad);
+        stmt_1.setInt(2,id);
+        stmt_1.executeUpdate();
+      }
+      finally {
+        stmt_1.close();
+      }
+
+      PreparedStatement stmt_2 = conexion.prepareStatement("DELETE FROM carrito_compra WHERE id=?");
+      try {
+        stmt_2.setInt(1,id_carrito);
+        stmt_2.executeUpdate();
+      }
+      finally {
+        stmt_2.close();
+      }
+
+      conexion.commit();              // guardar cambios
+    }
+    catch (Exception e) {
+      conexion.rollback();            // revertir cambios
+      return Response.status(400).entity(j.toJson(new Error(e.getMessage()))).build();
+    }
+    finally {
+      conexion.setAutoCommit(true);
+      conexion.close();               // cerrar conexion
+    }
+    return Response.ok().build();
+  }
+
+  @POST
+  @Path("borrar_carrito")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response borrarCarrito(String json) throws Exception {
+    Connection conexion= pool.getConnection();
+    int cantidad = 0;
+    int id = 0;
+
+    try {
+      PreparedStatement stmt_1 = conexion.prepareStatement("SELECT c.id_articulo, c.cantidad, a.cantidad FROM carrito_compra c INNER JOIN articulos a ON c.id_articulo=a.id");
+      try {
+        ResultSet rs = stmt_1.executeQuery();
+        try {
+          while (rs.next()) {
+            id = rs.getInt(1);
+            cantidad = rs.getInt(2) + rs.getInt(3);
+            try {
+              conexion.setAutoCommit(false);  // transaccion iniciada
+
+              PreparedStatement stmt_2 = conexion.prepareStatement("UPDATE articulos SET cantidad=? WHERE id=?");
+              try {
+                stmt_2.setInt(1,cantidad);
+                stmt_2.setInt(2,id);
+                stmt_2.executeUpdate();
+              }
+              finally {
+                stmt_2.close();
+              }
+
+              conexion.commit();              // guardar cambios
+            }
+            catch (Exception e) {
+              conexion.rollback();          // revertir cambios
+              conexion.setAutoCommit(true);
+              conexion.close();             // cerrar conexion
+              return Response.status(400).entity(j.toJson(new Error(e.getMessage()))).build();
+            }
+          }
+        }
+        finally {
+          rs.close();
+        }
+      }
+      finally {
+        stmt_1.close();
+      }
+    }
+    catch (Exception e) {
+      return Response.status(400).entity(j.toJson(new Error(e.getMessage()))).build();
+    }
+
+    try {
+      conexion.setAutoCommit(false);  // transaccion iniciada
+
+      PreparedStatement stmt_1 = conexion.prepareStatement("DELETE FROM carrito_compra");
+      try {
+        stmt_1.executeUpdate();
+      }
+      finally {
+        stmt_1.close();
+      }
+
+      conexion.commit();              // guardar cambios
+    }
+    catch (Exception e) {
+      conexion.rollback();            // revertir cambios
+      return Response.status(400).entity(j.toJson(new Error(e.getMessage()))).build();
+    }
+    finally {
+      conexion.setAutoCommit(true);
+      conexion.close();               // cerrar conexion
+    }
+    return Response.ok().build();
+  }
 }

@@ -2,8 +2,8 @@ package ecommerce;
 
 import java.sql.Timestamp;
 
-public class Articulo
-{
+public class Articulo {
+  int id;
   String nombre;
   String descripcion;
   float precio;

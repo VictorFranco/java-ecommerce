@@ -4,5 +4,5 @@ import com.google.gson.*;
 
 public class ParamBorraArticulo 
 {
-  String email;
+  int id;
 }
